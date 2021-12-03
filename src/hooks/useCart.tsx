@@ -39,15 +39,15 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       // Verificar se existe produto no estoque
       const { data: stock } = await api.get<Stock>(`/stock/${productId}`);
 
-      // Criar carrinho atualizado
-      let newCart: Product[] = [];
+      // Criar carrinho para atualização
+      const updatedCart = [...cart];
 
       // verificar se já existe produto no carrinho do usuário
-      let existingProduct = cart.find(product => product.id === productId);
+      const existingProduct = cart.find(product => product.id === productId);
+      const currentAmount = existingProduct ? existingProduct.amount : 0;
+      const amount = currentAmount + 1;
 
-      let check = existingProduct?.amount === undefined ? 0 : existingProduct.amount;
-
-      if(stock.amount < 0 || stock.amount <= check) {
+      if(amount > stock.amount) {
         throw new Error('Quantidade solicitada fora de estoque');
       }
 
@@ -56,34 +56,22 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       if(!existingProduct) {
         const { data } = await api.get<Omit<Product, 'amount'>>(`/products/${productId}`);
 
-        existingProduct = {
+        const newProduct = {
           ...data,
           amount: 1
         }
-
-        newCart = [
-          ...cart, 
-          existingProduct
-        ]
-
-        // incluir produto no carrinho
-        setCart(newCart)
+        
+        updatedCart.push(newProduct);
+        
       } else {
         // se já existir produto no carrinho, acrescenta uma unidade
-        let newCart: Product[] = cart.map(
-          product => product.id !== productId 
-          ? product 
-          : {
-            ...product,
-            amount: product.amount + 1
-          }
-        );
-
-        setCart(newCart);
+        existingProduct.amount = amount;
       }
 
+      setCart(updatedCart);
+
       // Atualizar carrinho no localstorage
-      localStorage.setItem(`${STORAGE_KEY}:cart`, JSON.stringify(newCart));
+      localStorage.setItem(`${STORAGE_KEY}:cart`, JSON.stringify(updatedCart));
 
     } catch(err: any) {
       /***
@@ -112,11 +100,11 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
         // Se existir, filtrar no carrinho todos os produtos
         // diferente do produto selecionado e gerar um novo
         // carrinho, salvando no localStorage
-        const newCart = cart.filter(product => product.id !== productId)
+        const updatedCart = cart.filter(product => product.id !== productId)
 
-        localStorage.setItem(`${STORAGE_KEY}:cart`, JSON.stringify(newCart));
+        localStorage.setItem(`${STORAGE_KEY}:cart`, JSON.stringify(updatedCart));
 
-        setCart(newCart);
+        setCart(updatedCart);
       }
     } catch(err: any) {
       /***
